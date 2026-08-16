@@ -5,7 +5,7 @@ async function main() {
   const prisma = new PrismaClient({
     datasources: {
       db: {
-        url: "postgresql://postgres.xqeajniniyqzotvypjvz:ESzaem9APk4uEbQz@aws-1-ap-south-1.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=5"
+        url: process.env.DATABASE_URL || ""
       }
     }
   });

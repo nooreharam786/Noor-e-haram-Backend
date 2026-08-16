@@ -1,7 +1,7 @@
 import { Client } from 'pg';
 
-const SOURCE_URL = "postgresql://postgres.pcszdataqkjwybefrzob:0D55rZqHbM3JFNYK@aws-1-ap-southeast-1.pooler.supabase.com:5432/postgres";
-const TARGET_URL = "postgresql://postgres.xqeajniniyqzotvypjvz:ESzaem9APk4uEbQz@aws-1-ap-south-1.pooler.supabase.com:5432/postgres";
+const SOURCE_URL = process.env.SOURCE_DATABASE_URL || process.env.DATABASE_URL || "";
+const TARGET_URL = process.env.TARGET_DATABASE_URL || "";
 
 async function main() {
   const source = new Client({ connectionString: SOURCE_URL, ssl: { rejectUnauthorized: false } });
