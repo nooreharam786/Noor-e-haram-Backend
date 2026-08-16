@@ -2,7 +2,7 @@ import { Client } from 'pg';
 
 async function main() {
   const client = new Client({
-    connectionString: 'postgresql://postgres:0D55rZqHbM3JFNYK@db.pcszdataqkjwybefrzob.supabase.co:5432/postgres',
+    connectionString: process.env.DATABASE_URL || "",
     ssl: { rejectUnauthorized: false }
   });
   await client.connect();
