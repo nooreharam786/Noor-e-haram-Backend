@@ -1,0 +1,1 @@
+import { PrismaClient } from "@prisma/client"; const prisma = new PrismaClient(); async function main() { console.log("Gallery Items:", await prisma.galleryItem.findMany()); console.log("Settings:", await prisma.setting.findMany({where: {key: "GALLERY_IMAGE_URLS"}})); } main().finally(() => prisma.$disconnect());

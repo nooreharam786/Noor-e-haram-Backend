@@ -1,0 +1,1 @@
+import { PrismaClient } from "@prisma/client"; const prisma = new PrismaClient(); async function main() { await prisma.galleryItem.updateMany({data: {isVisible: true}}); console.log("Gallery items made visible!"); } main().finally(() => prisma.$disconnect());

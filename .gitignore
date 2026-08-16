@@ -1,0 +1,50 @@
+# Dependencies
+node_modules/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+.env.production
+.env.example
+env1
+
+
+# Build output
+dist/
+build/
+
+# Prisma & Database
+*.db
+*.db-shm
+*.db-wal
+
+# Uploads
+uploads/*
+!uploads/.gitkeep
+
+# Vercel
+.vercel/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# IDE & System
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# Temp & Cache
+.cache/
+temp/
+*.tmp
+.nyc_output/
+coverage/

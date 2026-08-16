@@ -1,0 +1,426 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum Role {
+  user
+  admin
+}
+
+enum ApplicationStatus {
+  pending
+  verified
+  approved
+  rejected
+  winner
+  waiting_list
+  cancelled
+  selected
+  not_selected
+}
+
+enum PaymentStatus {
+  pending
+  paid
+  failed
+  refunded
+}
+
+enum PaymentAttemptStatus {
+  created
+  checkout_open
+  failed
+  cancelled
+  expired
+  superseded
+  verified
+}
+
+enum DrawStatus {
+  draft
+  active
+  paused
+  closed
+  archived
+}
+
+enum DonationStatus {
+  pending
+  completed
+  failed
+}
+
+model User {
+  id                  String               @id @default(cuid())
+  name                String
+  email               String               @unique
+  password            String
+  role                Role                 @default(user)
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  applications        Application[]
+  donations           Donation[]
+  passwordResetTokens PasswordResetToken[]
+
+  @@index([role])
+  @@index([createdAt])
+}
+
+model Draw {
+  id               String        @id @default(cuid())
+  name             String
+  drawIndex        Int           @default(0)
+  status           DrawStatus    @default(draft)
+  appControlStatus String        @default("open")
+  bannerMessage     String?
+  startDate        DateTime?
+  endDate          DateTime?
+  maxParticipants  Int?
+  // 1 is the safe default. 0 means unlimited, and a positive number permits
+  // that many separate family-member applications under one account.
+  maxApplicationsPerUser Int @default(1)
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  applications     Application[]
+  result           DrawResult?
+
+  @@index([status])
+  @@index([drawIndex])
+}
+
+model Application {
+  id             String            @id @default(cuid())
+  registrationNo String            @unique
+  userId         String
+  drawId         String
+  // A user account can register a family member, so the applicant name lives
+  // on the application rather than only on the account.
+  applicantName  String
+  phone          String
+  stateCode      String
+  stateName      String
+  city           String
+  address        String            @default("")
+  entryFee       Int               @default(1499)
+  status         ApplicationStatus @default(pending)
+  paymentStatus  PaymentStatus     @default(pending)
+  paymentId      String?
+  orderId        String?
+  lastPaymentAttemptAt DateTime?
+  pincode        String            @default("")
+  completedAt    DateTime?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  user           User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  draw           Draw              @relation(fields: [drawId], references: [id], onDelete: Restrict)
+  receipt        PaymentReceipt?
+  paymentAttempts PaymentAttempt[]
+
+  @@index([status])
+  @@index([paymentStatus])
+  @@index([stateCode])
+  @@index([registrationNo])
+  @@index([createdAt])
+  @@index([drawId])
+  @@index([drawId, createdAt])
+  @@index([drawId, status])
+  @@index([drawId, paymentStatus])
+  @@index([userId, drawId])
+}
+
+model PaymentReceipt {
+  id            String      @id @default(cuid())
+  receiptNo     String      @unique
+  applicationId String      @unique
+  amount        Int
+  paymentId     String
+  orderId       String
+  generatedAt   DateTime    @default(now())
+
+  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@index([receiptNo])
+  @@index([generatedAt])
+}
+
+model DrawResult {
+  id            String   @id @default(cuid())
+  drawId        String   @unique
+  totalUsers    Int
+  selectedCount Int
+  percentage    Float?
+  createdAt     DateTime @default(now())
+  draw          Draw     @relation(fields: [drawId], references: [id], onDelete: Cascade)
+}
+
+model RegistrationCounter {
+  id      Int @id @default(1)
+  counter Int @default(100000)
+}
+
+model PaymentAttempt {
+  id                     String               @id @default(cuid())
+  applicationId          String
+  razorpayOrderId        String               @unique
+  razorpayPaymentId      String?              @unique
+  status                 PaymentAttemptStatus @default(created)
+  amount                 Int
+  currency               String               @default("INR")
+  retryNumber            Int                  @default(0)
+  gatewayStatus          String?
+  gatewayCheckedAt       DateTime?
+  reconciliationAttempts Int                  @default(0)
+  lastGatewayResponse    String?
+  failureReason          String?
+  resolvedAt             DateTime?
+  supersededAt           DateTime?
+  createdAt              DateTime             @default(now())
+  updatedAt              DateTime             @updatedAt
+  application            Application          @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@index([applicationId, createdAt])
+  @@index([applicationId, status])
+  @@index([status, gatewayCheckedAt])
+}
+
+model PaymentAuditEvent {
+  id               String   @id @default(cuid())
+  applicationId    String
+  paymentAttemptId String?
+  event            String
+  correlationId    String?
+  metadata         String?
+  createdAt        DateTime @default(now())
+
+  @@index([applicationId, createdAt])
+  @@index([paymentAttemptId, createdAt])
+  @@index([correlationId])
+}
+
+model Donation {
+  id            String         @id @default(cuid())
+  receiptId     String?        @unique
+  donorName     String
+  phone         String
+  email         String?
+  amount        Float
+  currency      String         @default("INR")
+  donationType  String
+  onBehalfOf    String?
+  status        DonationStatus @default(pending)
+  paymentId     String?
+  orderId       String?
+  paymentMethod String?
+  isAnonymous   Boolean        @default(false)
+  userId        String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  user          User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@index([createdAt])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  adminId   String
+  action    String
+  entity    String
+  entityId  String?
+  details   String?
+  ipAddress String?
+  oldStatus String?
+  newStatus String?
+  createdAt DateTime @default(now())
+
+  @@index([adminId])
+  @@index([action])
+  @@index([createdAt])
+}
+
+model MarqueeMessage {
+  id          String    @id @default(cuid())
+  content     String
+  isActive    Boolean   @default(true)
+  order       Int       @default(0)
+  linkUrl     String?
+  eventDate   DateTime?
+  lastDate    DateTime?
+  statusBadge String?
+  priority    Int       @default(0)
+  startDate   DateTime?
+  endDate     DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([isActive])
+  @@index([order])
+  @@index([priority])
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  tokenHash String    @unique
+  userId    String
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model Setting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}
+
+enum AnnouncementStatus {
+  draft
+  scheduled
+  published
+  archived
+}
+
+model Announcement {
+  id          String             @id @default(cuid())
+  title       String
+  description String
+  priority    Int                @default(0)
+  publishDate DateTime?
+  expiryDate  DateTime?
+  status      AnnouncementStatus @default(published)
+  locations   String             @default("homepage,marquee")
+  linkUrl     String?
+  badge       String?
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  @@index([status])
+  @@index([priority])
+  @@index([createdAt])
+}
+
+model GalleryItem {
+  id          String   @id @default(cuid())
+  imageUrl    String
+  caption     String?
+  altText     String?
+  description String?
+  category    String   @default("general")
+  order       Int      @default(0)
+  isVisible   Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([isVisible])
+  @@index([category])
+  @@index([order])
+}
+
+model ContactMessage {
+  id        String   @id @default(cuid())
+  name      String
+  email     String
+  phone     String?
+  subject   String?
+  message   String
+  status    String   @default("unread")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([createdAt])
+}
+
+model PublicDocument {
+  id               String   @id @default(cuid())
+  title            String
+  description      String?
+  shortDescription String?
+  filename         String
+  contentType      String
+  data             Bytes?   // Legacy: kept for backward compat during migration to Supabase Storage
+  size             Int
+  storagePath      String?  // Supabase Storage path (e.g. "documents/clxyz_guide.pdf")
+  storageUrl       String?  // Full public URL from Supabase CDN
+  thumbnailUrl     String?
+  images           String   @default("[]")
+  kind             String   @default("dua")
+  order            Int      @default(0)
+  isPublished      Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([kind])
+  @@index([isPublished])
+  @@index([createdAt])
+}
+
+model Feedback {
+  id          String   @id @default(cuid())
+  name        String
+  rating      Int
+  message     String
+  location    String?
+  source      String   @default("public")
+  approved    Boolean  @default(true)
+  isFeatured  Boolean  @default(false)
+  isPublished Boolean  @default(true)
+  isHidden    Boolean  @default(false)
+  order       Int      @default(0)
+  avatarUrl   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([approved])
+  @@index([isPublished])
+  @@index([isFeatured])
+  @@index([order])
+  @@index([createdAt])
+}
+
+model OrgSettings {
+  id                String   @id @default("default")
+  phone             String   @default("+91 9213408880")
+  email             String   @default("support@nooreharam.in")
+  website           String   @default("www.nooreharam.in")
+  address           String   @default("AT.& PO.Umalla, (Dumala) Vaghpura, Near Masjid, Main Road, Ta. Jhagadia, Dist Bharuch 393120 Gujarat India")
+  logoUrl           String?  @map("logo_url")
+  sealImageUrl      String?  @map("seal_image_url")
+  signatureImageUrl String?  @map("signature_image_url")
+  signatoryName     String?  @map("signatory_name")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  @@map("org_settings")
+}
+
+model DrawBackup {
+  id                 String   @id @default(cuid())
+  drawId             String
+  drawName           String
+  drawIndex          Int
+  totalApplications  Int      @default(0)
+  paidApplications   Int      @default(0)
+  winnerApplications Int      @default(0)
+  snapshotData       Json
+  backupReason       String   @default("manual")
+  createdAt          DateTime @default(now())
+
+  @@index([drawId])
+  @@index([createdAt])
+  @@map("draw_backups")
+}
+
