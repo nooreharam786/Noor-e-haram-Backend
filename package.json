@@ -5,9 +5,9 @@
   "main": "api/index.ts",
   "scripts": {
     "dev": "tsx watch src/server.ts",
-    "build": "prisma generate && tsc",
-    "vercel-build": "prisma generate && tsc",
-    "type-check": "tsc --noEmit",
+    "build": "npx prisma generate && npx tsc --noEmit false",
+    "vercel-build": "npx prisma generate && npx tsc --noEmit false",
+    "type-check": "npx tsc --noEmit",
     "start": "node dist/server.js",
     "start:prod": "NODE_ENV=production node dist/server.js",
     "lint": "eslint \"src/**/*.ts\"",
